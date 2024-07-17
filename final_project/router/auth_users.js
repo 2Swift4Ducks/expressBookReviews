@@ -1,29 +1,119 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-let books = require("./booksdb.js");
+const books = require("./booksdb.js");
 const regd_users = express.Router();
-
 let users = [];
 
-const isValid = (username)=>{ //returns boolean
-//write code to check is the username is valid
+// Function to check if a username is valid (placeholder function)
+const isValid = (username) => {
+  return users.some(user => user.username === username);
 }
 
-const authenticatedUser = (username,password)=>{ //returns boolean
-//write code to check if username and password match the one we have in records.
+// Function to authenticate user credentials (placeholder function)
+const authenticatedUser = (username, password) => {
+  return users.some(user => user.username === username && user.password === password);
 }
 
-//only registered users can login
-regd_users.post("/login", (req,res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+// Task 7: Endpoint for user login 
+regd_users.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  console.log(username, password);
+
+  // Basic validation
+  if (!username || !password) {
+    return res.status(400).json({
+      message: "Username and password are required"
+    });
+  }
+
+  // Check if the user exists and credentials are valid
+  if (authenticatedUser(username, password)) {
+    // Create and sign a JWT token
+    const token = jwt.sign({ username }, 'fingerprint_customer', { expiresIn: '1h' });
+
+    // Store the token in session
+    req.session.token = token;
+    console.log(token);
+
+    res.status(200).json({
+      message: "Login successful", token
+    });
+  } else {
+    res.status(401).json({
+      message: "Invalid username or password"
+    });
+  }
 });
 
-// Add a book review
+// Task 8: Endpoint to add or modify a review for a book
 regd_users.put("/auth/review/:isbn", (req, res) => {
-  //Write your code here
-  return res.status(300).json({message: "Yet to be implemented"});
+  const username = req.user.username; // Access user data
+  const { isbn } = req.params;
+  const { review } = req.body;
+
+  // Validate username
+  if (!username) {
+    return res.status(400).json({
+      error: "Invalid username"
+    });
+  }
+
+  // Validate isbn
+  if (!isbn || !books.hasOwnProperty(isbn)) {
+    return res.status(400).json({
+      error: "Invalid ISBN"
+    });
+  }
+
+  let bookWithISBNReviews = books[isbn].reviews;
+
+  if (bookWithISBNReviews.hasOwnProperty(username)) {
+    // If the user has already reviewed, update the review
+    bookWithISBNReviews[username] = review;
+    return res.status(200).json({
+      message: `Review has been modified successfully by the user : ${username}`,
+      bookWithISBNReviews
+    });
+  } else {
+    // If the user hasn't reviewed yet, add a new review
+    bookWithISBNReviews[username] = review;
+    return res.status(200).json({
+      message: `Review has been added successfully by the user : ${username}`,
+      bookWithISBNReviews
+    });
+  }
 });
+
+// Task 9: Endpoint to delete a review for a book
+regd_users.delete("/auth/review/:isbn", (req, res) => {
+  const { isbn } = req.params;
+  const username = req.user.username;
+
+    // Validate username
+    if (!username) {
+      return res.status(400).json({
+        error: "Invalid username"
+      });
+    }
+  
+    // Validate isbn
+    if (!isbn || !books.hasOwnProperty(isbn)) {
+      return res.status(400).json({
+        error: "Invalid ISBN"
+      });
+    }
+
+  let bookWithISBNReviews = books[isbn].reviews;
+
+  // Delete the review
+  delete bookWithISBNReviews[username];
+
+  res.status(200).json({
+    message: `Review has been deleted successfully by the user : ${username}`,
+    bookWithISBNReviews
+  });
+});
+
 
 module.exports.authenticated = regd_users;
 module.exports.isValid = isValid;
